@@ -16,9 +16,9 @@ auto main(int argc, char **argv) -> int {
   std::ios_base::sync_with_stdio(false);
   std::cin.tie(nullptr);
 
-  constexpr stats_handler_options options{.print_illegal_values = false};
-  auto handler = stacked_handler(
-      stats_handler<options>(), quantity_scale_handler(), csv_handler(argv[2]));
+  auto handler =
+      stacked_handler(stats_handler</*print_illegal_values=*/false>(),
+                      quantity_scale_handler(), csv_handler(argv[2]));
   qualifiers_parser<decltype(handler)> parser;
   parser.parse(argv[1], &handler);
 

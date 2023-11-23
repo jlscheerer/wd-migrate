@@ -78,11 +78,7 @@ private:
 template <typename... args>
 stacked_handler(args &&...) -> stacked_handler<args...>;
 
-struct stats_handler_options {
-  bool print_illegal_values = false;
-};
-
-template <const stats_handler_options options>
+template <const bool print_illegal_values = false>
 struct stats_handler : public empty_handler</*fail_if_unhandled=*/true> {
 public:
   auto summary() -> void {
@@ -219,7 +215,7 @@ public: // result handlers
   template <typename columns_type>
   auto handle(const columns_type &columns, const wd_invalid_t<wd_time_t> &value)
       -> void {
-    if constexpr (options.print_illegal_values) {
+    if constexpr (print_illegal_values) {
       std::cout << columns.template get_field<kDatavalueString>() << std::endl;
     }
     ++row_count_, ++iv_time_;
