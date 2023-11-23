@@ -44,29 +44,6 @@ static const std::string kDatavalueTypeText = "monolingualtext";
 std::regex
     text_regex("^\\{\"text\"=>\"(.*?)\", \"language\"=>\"([^\"]*?)\"\\}$");
 
-auto parse_time(const std::string &snaktype, const std::string &time_str)
-    -> void {
-  if (time_str == "novalue") {
-    // TODO(jlscheerer) Increase a counter for this event.
-    return;
-  }
-  std::smatch time_match;
-  if (!std::regex_match(time_str, time_match, time_regex)) {
-    std::cerr << "Unexpected time string encountered." << std::endl;
-    std::cerr << "time_str: " << time_str << std::endl;
-    std::exit(-1);
-  }
-  std::string time(time_match[1].str()), calendarmodel(time_match[6].str());
-  std::uint64_t timezone(std::stoull(time_match[2].str())),
-      before(std::stoull(time_match[3].str())),
-      after(std::stoull(time_match[4].str())),
-      precision(std::stoull(time_match[5].str()));
-  // std::cout << time_str << std::endl;
-  // std::cout << time << ' ' << timezone << ' ' << before << ' ' << after << '
-  // '
-  //           << precision << ' ' << calendarmodel << std::endl;
-}
-
 template <std::uint64_t update_iterations> struct iteration_update_policy {
   static auto should_update(std::uint64_t iterations) {
     return iterations % update_iterations == 0;
@@ -163,6 +140,30 @@ public:
   }
 
 private:
+  auto parse_time(const std::string &snaktype, const std::string &time_str)
+      -> void {
+    if (time_str == "novalue") {
+      // TODO(jlscheerer) Increase a counter for this event.
+      return;
+    }
+    std::smatch time_match;
+    if (!std::regex_match(time_str, time_match, time_regex)) {
+      std::cerr << "Unexpected time string encountered." << std::endl;
+      std::cerr << "time_str: " << time_str << std::endl;
+      std::exit(-1);
+    }
+    std::string time(time_match[1].str()), calendarmodel(time_match[6].str());
+    std::uint64_t timezone(std::stoull(time_match[2].str())),
+        before(std::stoull(time_match[3].str())),
+        after(std::stoull(time_match[4].str())),
+        precision(std::stoull(time_match[5].str()));
+    // std::cout << time_str << std::endl;
+    // std::cout << time << ' ' << timezone << ' ' << before << ' ' << after <<
+    // '
+    // '
+    //           << precision << ' ' << calendarmodel << std::endl;
+  }
+
   auto parse_coordinate(const std::string &coordinate_str) -> void {
     if (coordinate_str == "novalue") {
       // TODO(jlscheerer) Increase a counter for this event.
@@ -224,9 +225,13 @@ private:
   }
 };
 
-auto main() -> int {
+auto main(int argc, char **argv) -> int {
+  if (argc <= 1) {
+    std::cout << "usage: " << argv[0] << " <filename>" << std::endl;
+    return -1;
+  }
   std::ios_base::sync_with_stdio(false);
   std::cin.tie(nullptr);
-  qualifiers_parser("data/qualifiers10M.csv");
+  qualifiers_parser parser(argv[1]);
   return 0;
 }
