@@ -76,7 +76,7 @@ private:
         1000.0 * (double)iterations_ / elapsed_millis();
     std::cout << "| " << label_ << ": " << iterations_ << " it "
               << it_per_second << " it/s "
-              << "|\r";
+              << "|" << std::string(20, ' ') << "\r";
     std::cout.flush();
   }
   auto elapsed_millis() -> std::uint64_t {
