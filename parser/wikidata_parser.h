@@ -70,9 +70,9 @@ public:
 
 template <typename derived, const char *field_name>
 struct wd_column_parser : wd_datavalue_type_parser<derived> {
-  template <typename columns_type>
-  static auto parse_row(const columns_type &columns) {
-    return derived::parse(columns.template get_field<field_name>());
+  template <typename result_handler, typename columns_type>
+  static auto parse_row(result_handler *handler, const columns_type &columns) {
+    return derived::parse(handler, columns.template get_field<field_name>());
   }
 };
 
@@ -88,8 +88,9 @@ public:
   static auto can_parse(const columns_type &columns) -> bool {
     return true;
   }
-  template <typename columns_type>
-  static auto parse(const columns_type &columns) -> void {
+  template <typename result_handler, typename columns_type>
+  static auto parse(result_handler *handler, const columns_type &columns)
+      -> void {
     std::cerr << "Unexpected datavalue_type encountered."
               << std::string(20, ' ') << std::endl;
     std::cerr << "datavalue_type: "
@@ -102,8 +103,10 @@ struct wd_string_parser
     : public detail::wd_datavalue_string_parser<wd_string_parser> {
 public:
   static const inline std::string kTypeIdentifier = "string";
-  static auto parse(const std::string &str) -> void {
+  template <typename result_handler>
+  static auto parse(result_handler *handler, const std::string &str) -> void {
     // NOTE "parsing" the string type is trivial.
+    handler->handle(wd_string_t{.value = str});
   }
 };
 
@@ -111,8 +114,11 @@ struct wd_entity_parser
     : public detail::wd_datavalue_entity_parser<wd_entity_parser> {
 public:
   static const inline std::string kTypeIdentifier = "wikibase-entityid";
-  static auto parse(const std::string &entity_id) -> void {
+  template <typename result_handler>
+  static auto parse(result_handler *handler, const std::string &entity_id)
+      -> void {
     // NOTE "parsing" the entity_id is trivial.
+    handler->handle(wd_entity_id_t{.value = entity_id});
   }
 };
 
@@ -120,10 +126,11 @@ struct wd_text_parser
     : public detail::wd_datavalue_string_parser<wd_text_parser> {
 public:
   static const inline std::string kTypeIdentifier = "monolingualtext";
-
-  static auto parse(const std::string &text_str) -> void {
+  template <typename result_handler>
+  static auto parse(result_handler *handler, const std::string &text_str)
+      -> void {
     if (text_str == "novalue") {
-      // TODO(jlscheerer) Increase a counter for this event.
+      handler->handle(wd_novalue_t<wd_text_t>{});
       return;
     }
     std::smatch text_match;
@@ -132,12 +139,11 @@ public:
       std::cerr << "text_str: " << text_str << std::endl;
       std::exit(-1);
     }
-    // std::string text(text_match[1].str()), language(text_match[2].str());
-    // std::cout << text << " " << language << std::endl;
+    std::string text(text_match[1].str()), language(text_match[2].str());
+    handler->handle(wd_text_t{.text = text, .language = language});
   }
 
 private:
-  // {"text"=>"The Arms of George Washington", "language"=>"en"}
   static const inline std::regex text_regex =
       std::regex("^\\{\"text\"=>\"(.*?)\", \"language\"=>\"([^\"]*?)\"\\}$");
 };
@@ -146,10 +152,10 @@ struct wd_time_parser
     : public detail::wd_datavalue_string_parser<wd_time_parser> {
 public:
   static const inline std::string kTypeIdentifier = "time";
-
-  static auto parse(const std::string &time_str) {
+  template <typename result_handler>
+  static auto parse(result_handler *handler, const std::string &time_str) {
     if (time_str == "novalue") {
-      // TODO(jlscheerer) Increase a counter for this event.
+      handler->handle(wd_novalue_t<wd_time_t>{});
       return;
     }
     std::smatch time_match;
@@ -158,27 +164,20 @@ public:
       std::cerr << "time_str: " << time_str << std::endl;
       std::exit(-1);
     }
-
-    // NOTE For calendarmodel we have (Q1985727 = "Gregorian Calendar", >99%)
-    //      and (Q1985786 = "Julian Calendar")
     std::string time(time_match[1].str()), calendarmodel(time_match[6].str());
-
-    // NOTE >99.9% of values have timezone = 0. The others are 1 and 60.
     std::uint64_t timezone(std::stoull(time_match[2].str())),
         before(std::stoull(time_match[3].str())),
         after(std::stoull(time_match[4].str())),
         precision(std::stoull(time_match[5].str()));
-    // std::cout << time_str << std::endl;
-    // std::cout << time << ' ' << timezone << ' ' << before << ' ' << after <<
-    // '
-    // '
-    //           << precision << ' ' << calendarmodel << std::endl;
+    handler->handle(wd_time_t{.time = time,
+                              .calendermodel = calendarmodel,
+                              .timezone = timezone,
+                              .before = before,
+                              .after = after,
+                              .precision = precision});
   }
 
 private:
-  // {"time"=>"+2023-09-13T00:00:00Z", "timezone"=>0, "before"=>0, "after"=>0,
-  // "precision"=>11,
-  // "calendarmodel"=>"http://www.wikidata.org/entity/Q1985727"}
   static const inline std::regex time_regex = std::regex(
       "^\\{\"time\"=>\"([^\"]*?)\", \"timezone\"=>(\\d+), \"before\"=>(\\d+), "
       "\"after\"=>(\\d+), \"precision\"=>(\\d+).*, "
@@ -189,10 +188,12 @@ struct wd_quantity_parser
     : public detail::wd_datavalue_string_parser<wd_quantity_parser> {
 public:
   static const inline std::string kTypeIdentifier = "quantity";
-  static auto parse(const std::string &quantity_str) -> void {
+  template <typename result_handler>
+  static auto parse(result_handler *handler, const std::string &quantity_str)
+      -> void {
     std::smatch quantity_match;
     if (quantity_str == "novalue") {
-      // TODO(jlscheerer) Increase a counter for this event.
+      handler->handle(wd_novalue_t<wd_quantity_t>{});
       return;
     }
     if (!std::regex_match(quantity_str, quantity_match, quantity_regex)) {
@@ -203,16 +204,13 @@ public:
     std::string quantity(quantity_match[1].str()),
         unit(quantity_match[2].str()), upper_bound(quantity_match[4].str()),
         lower_bound(quantity_match[6].str());
-    // std::cout << quantity_str << std::endl;
-    // std::cout << quantity << ' ' << unit << ' ' << upper_bound << ' '
-    //           << lower_bound << std::endl;
+    handler->handle(wd_quantity_t{.quantity = quantity,
+                                  .unit = unit,
+                                  .lower_bound = lower_bound,
+                                  .upper_bound = upper_bound});
   }
 
 private:
-  // {"amount"=>"+50", "unit"=>"http://www.wikidata.org/entity/Q39369"}
-  // {"amount"=>"-3.54", "unit"=>"http://www.wikidata.org/entity/Q11573"}
-  // {"amount"=>"+57613", "unit"=>"1"}
-  // novalue | snaktype = somevalue
   static const inline std::regex quantity_regex = std::regex(
       "\\{\"amount\"=>\"([^\"]*?)\", \"unit\"=>\"([^\"]*?)\"(, "
       "\"upperBound\"=>\"([^\"]*?)\")?(, \"lowerBound\"=>\"([^\"]*?)\")?\\}");
@@ -222,9 +220,11 @@ struct wd_coordinate_parser
     : public detail::wd_datavalue_string_parser<wd_coordinate_parser> {
 public:
   static const inline std::string kTypeIdentifier = "globecoordinate";
-  static auto parse(const std::string &coordinate_str) -> void {
+  template <typename result_handler>
+  static auto parse(result_handler *handler, const std::string &coordinate_str)
+      -> void {
     if (coordinate_str == "novalue") {
-      // TODO(jlscheerer) Increase a counter for this event.
+      handler->handle(wd_novalue_t<wd_coordinate_t>{});
       return;
     }
     std::smatch coordinate_match;
@@ -233,17 +233,15 @@ public:
       std::cerr << "coordinate_str: " << coordinate_str << std::endl;
       std::exit(-1);
     }
-    // {"latitude"=>38.70661, "longitude"=>-77.08723, "altitude"=>nil,
-    // "precision"=>0.000277778, "globe"=>"http://www.wikidata.org/entity/Q2"}
     std::string latitude(coordinate_match[1].str()),
         longitude(coordinate_match[2].str()),
         altitude(coordinate_match[3].str()),
         precision(coordinate_match[4].str()), globe(coordinate_match[5].str());
-
-    // std::cout << coordinate_str << std::endl;
-    // std::cout << latitude << ' ' << longitude << ' ' << precision << ' ' <<
-    // globe
-    //           << std::endl;
+    handler->handle(wd_coordinate_t{.latitude = latitude,
+                                    .longitude = longitude,
+                                    .altitude = altitude,
+                                    .precision = precision,
+                                    .globe = globe});
   }
 
 private:
@@ -258,21 +256,21 @@ private:
 template <typename... parsers> struct wd_combined_parser;
 
 template <> struct wd_combined_parser<> {
-  template <typename columns_type>
-  static auto parse_row(const columns_type &columns) {
-    detail::wd_fallback_parser::parse(columns);
+  template <typename result_handler, typename columns_type>
+  static auto parse_row(result_handler *handler, const columns_type &columns) {
+    detail::wd_fallback_parser::parse(handler, columns);
   }
 };
 
 template <typename head, typename... tail>
 struct wd_combined_parser<head, tail...> {
 public:
-  template <typename columns_type>
-  static auto parse_row(const columns_type &columns) {
+  template <typename result_handler, typename columns_type>
+  static auto parse_row(result_handler *handler, const columns_type &columns) {
     if (head::can_parse(columns)) {
-      head::parse_row(columns);
+      head::parse_row(handler, columns);
     } else {
-      wd_combined_parser<tail...>::parse_row(columns);
+      wd_combined_parser<tail...>::parse_row(handler, columns);
     }
   }
 };
@@ -282,25 +280,23 @@ using wd_primitives_parser =
                        wd_coordinate_parser, wd_quantity_parser,
                        wd_text_parser>;
 
-template <typename parser, typename columns_type> class wikidata_parser_impl {
+template <typename parser, typename result_handler, typename columns_type>
+class wikidata_parser_impl {
 public:
-  wikidata_parser_impl(const std::string &filename) : filename_(filename) {}
-  auto parse() -> void {
+  auto parse(const std::string &filename, result_handler *handler) -> void {
     io::CSVReader<columns_type::size(), io::trim_chars<' '>,
                   io::no_quote_escape<'\t'>>
-        reader(filename_);
-    utils::progress_indicator progress("parsing " + filename_);
+        reader(filename);
+    utils::progress_indicator progress("parsing " + filename);
     progress.start();
     while (columns_.read_row(reader)) {
-      parser::parse_row(columns_);
+      parser::parse_row(handler, columns_);
       progress.update();
     }
     progress.done();
   }
 
 protected:
-  const std::string filename_;
-
   columns_type columns_;
 };
 } // namespace detail

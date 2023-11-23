@@ -28,8 +28,9 @@ using qualifiers_columns =
                    wd_column_info<kOrderHash, std::uint64_t>>;
 } // namespace detail
 
+template <typename handler>
 using qualifiers_parser =
-    detail::wikidata_parser_impl<detail::wd_primitives_parser,
+    detail::wikidata_parser_impl<detail::wd_primitives_parser, handler,
                                  detail::qualifiers_columns>;
 } // namespace wd_migrate
 
