@@ -4,16 +4,28 @@
 #include <cstdlib>
 #include <iostream>
 #include <ostream>
+#include <type_traits>
 #include <utility>
 
+#include "../parser/wikidata_columns.h"
+
 namespace wd_migrate {
-template <bool fail_if_not_handled = false> struct empty_handler {
-  template <typename result_type> auto handle(const result_type &value) {
-    if constexpr (fail_if_not_handled) {
-      std::cerr << "handler failed to handle type." << std::endl;
+template <bool fail_if_unhandled = false> struct empty_handler {
+  template <typename result_type>
+  auto handle(const result_type &value) -> void {
+    if constexpr (fail_if_unhandled) {
+      std::cerr << "handler failed to handle type." << std::string(30, ' ')
+                << std::endl;
       std::exit(-1);
     }
   }
+};
+
+struct skip_novalue_handler : public empty_handler</*fail_if_unhandled=*/true> {
+public:
+  template <typename result_type>
+  auto handle(const wd_novalue_t<result_type> &value) {}
+  using empty_handler::handle;
 };
 
 template <typename... handlers> struct stacked_handler;
@@ -35,6 +47,14 @@ public:
     tail_.handle(value);
   }
 
+  template <typename handler_type> auto &get() {
+    if constexpr (std::is_same_v<head_type, handler_type>) {
+      return head_;
+    } else {
+      return tail_.template get<handler_type>();
+    }
+  }
+
 private:
   head_type head_;
   stacked_handler<tail...> tail_;
@@ -42,6 +62,64 @@ private:
 
 template <typename... args>
 stacked_handler(args &&...) -> stacked_handler<args...>;
+
+struct stats_handler : public empty_handler</*fail_if_unhandled=*/true> {
+public:
+  auto summary() -> void {
+    std::cout << "row count: " << row_count_ << std::endl;
+    std::cout << "missing values ("
+              << (nv_string_ + nv_entity_ + nv_text_ + nv_time_ + nv_quantity_ +
+                  nv_coordinate_)
+              << "): " << std::endl;
+    std::cout << "  "
+              << "string: " << nv_string_ << std::endl;
+    std::cout << "  "
+              << "entity: " << nv_entity_ << std::endl;
+    std::cout << "  "
+              << "text: " << nv_text_ << std::endl;
+    std::cout << "  "
+              << "time: " << nv_time_ << std::endl;
+    std::cout << "  "
+              << "quantity: " << nv_quantity_ << std::endl;
+    std::cout << "  "
+              << "coordinate: " << nv_coordinate_ << std::endl;
+  }
+
+public: // result handlers
+  auto handle(const wd_string_t &value) -> void { ++row_count_; }
+  auto handle(const wd_entity_id_t &value) -> void { ++row_count_; }
+  auto handle(const wd_text_t &value) -> void { ++row_count_; }
+  auto handle(const wd_time_t &value) -> void { ++row_count_; }
+  auto handle(const wd_quantity_t &value) -> void { ++row_count_; }
+  auto handle(const wd_coordinate_t &value) -> void { ++row_count_; }
+
+  // Count Missing Values
+  auto handle(const wd_novalue_t<wd_string_t> &value) -> void {
+    ++row_count_, ++nv_string_;
+  }
+  auto handle(const wd_novalue_t<wd_entity_id_t> &value) -> void {
+    ++row_count_, ++nv_entity_;
+  }
+  auto handle(const wd_novalue_t<wd_text_t> &value) -> void {
+    ++row_count_, ++nv_text_;
+  }
+  auto handle(const wd_novalue_t<wd_time_t> &value) -> void {
+    ++row_count_, ++nv_time_;
+  }
+  auto handle(const wd_novalue_t<wd_quantity_t> &value) -> void {
+    ++row_count_, ++nv_quantity_;
+  }
+  auto handle(const wd_novalue_t<wd_coordinate_t> &value) -> void {
+    ++row_count_, ++nv_coordinate_;
+  }
+
+  using empty_handler::handle;
+
+private:
+  std::uint64_t row_count_ = 0;
+  std::uint64_t nv_string_ = 0, nv_entity_ = 0, nv_text_ = 0, nv_time_ = 0,
+                nv_quantity_ = 0, nv_coordinate_ = 0;
+};
 
 } // namespace wd_migrate
 
