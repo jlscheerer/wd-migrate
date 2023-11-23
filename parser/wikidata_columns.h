@@ -1,8 +1,12 @@
 #ifndef PARSER_WIKIDATA_COLUMNS_H
 #define PARSER_WIKIDATA_COLUMNS_H
 
+#include <chrono>
 #include <cstdint>
+#include <optional>
 #include <string>
+
+#include "../utils/date.h"
 
 static const char kClaimId[] = "claim_id";
 static const char kPropety[] = "property";
@@ -18,6 +22,8 @@ static const char kDatatype[] = "datatype";
 static const char kCounter[] = "counter";
 static const char kOrderHash[] = "order_hash";
 
+using iso_time_t = date::sys_time<std::chrono::milliseconds>;
+
 struct wd_string_t {
   const std::string value;
 };
@@ -32,7 +38,9 @@ struct wd_text_t {
 };
 
 struct wd_time_t {
+public:
   const std::string time;
+  const iso_time_t iso8601;
 
   // NOTE For calendarmodel we have (Q1985727 = "Gregorian Calendar", >99%)
   //      and (Q1985786 = "Julian Calendar")
@@ -48,7 +56,9 @@ struct wd_time_t {
 
 struct wd_quantity_t {
   const std::string quantity;
-  const std::string unit;
+
+  const std::optional<std::string> unit;
+
   const std::string lower_bound;
   const std::string upper_bound;
 };
@@ -63,5 +73,6 @@ struct wd_coordinate_t {
 };
 
 template <typename type> struct wd_novalue_t {};
+template <typename type> struct wd_invalid_t : public wd_novalue_t<type> {};
 
 #endif // !PARSER_WIKIDATA_COLUMNS_H

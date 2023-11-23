@@ -16,11 +16,13 @@ auto main(int argc, char **argv) -> int {
   std::ios_base::sync_with_stdio(false);
   std::cin.tie(nullptr);
 
-  auto handler = stacked_handler(stats_handler(), csv_handler());
+  constexpr stats_handler_options options{.print_illegal_values = false};
+  auto handler =
+      stacked_handler(stats_handler<options>(), quantity_scale_handler(),
+                      csv_handler("data/example.csv"));
   qualifiers_parser<decltype(handler)> parser;
   parser.parse(argv[1], &handler);
 
-  handler.get<stats_handler>().summary();
-
+  handler.summary();
   return 0;
 }
