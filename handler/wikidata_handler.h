@@ -11,8 +11,8 @@
 
 namespace wd_migrate {
 template <bool fail_if_unhandled = false> struct empty_handler {
-  template <typename result_type>
-  auto handle(const result_type &value) -> void {
+  template <typename columns_type, typename result_type>
+  auto handle(const columns_type &columns, const result_type &value) -> void {
     if constexpr (fail_if_unhandled) {
       std::cerr << "handler failed to handle type." << std::string(30, ' ')
                 << std::endl;
@@ -23,7 +23,7 @@ template <bool fail_if_unhandled = false> struct empty_handler {
 
 struct skip_novalue_handler : public empty_handler</*fail_if_unhandled=*/true> {
 public:
-  template <typename result_type>
+  template <typename columns_type, typename result_type>
   auto handle(const wd_novalue_t<result_type> &value) {}
   using empty_handler::handle;
 };
@@ -31,7 +31,8 @@ public:
 template <typename... handlers> struct stacked_handler;
 
 template <> struct stacked_handler<> {
-  template <typename result_type> auto handle(const result_type &value) {}
+  template <typename columns_type, typename result_type>
+  auto handle(const columns_type &columns, const result_type &value) {}
 };
 
 template <typename head_type, typename... tail>
@@ -42,9 +43,10 @@ public:
       : head_(std::move(head)),
         tail_(std::forward<tail_args_types>(tail_args)...) {}
 
-  template <typename result_type> auto handle(const result_type &value) {
-    head_.handle(value);
-    tail_.handle(value);
+  template <typename columns_type, typename result_type>
+  auto handle(const columns_type &columns, const result_type &value) {
+    head_.handle(columns, value);
+    tail_.handle(columns, value);
   }
 
   template <typename handler_type> auto &get() {
@@ -86,30 +88,62 @@ public:
   }
 
 public: // result handlers
-  auto handle(const wd_string_t &value) -> void { ++row_count_; }
-  auto handle(const wd_entity_id_t &value) -> void { ++row_count_; }
-  auto handle(const wd_text_t &value) -> void { ++row_count_; }
-  auto handle(const wd_time_t &value) -> void { ++row_count_; }
-  auto handle(const wd_quantity_t &value) -> void { ++row_count_; }
-  auto handle(const wd_coordinate_t &value) -> void { ++row_count_; }
+  template <typename columns_type>
+  auto handle(const columns_type &columns, const wd_string_t &value) -> void {
+    ++row_count_;
+  }
+  template <typename columns_type>
+  auto handle(const columns_type &columns, const wd_entity_id_t &value)
+      -> void {
+    ++row_count_;
+  }
+  template <typename columns_type>
+  auto handle(const columns_type &columns, const wd_text_t &value) -> void {
+    ++row_count_;
+  }
+  template <typename columns_type>
+  auto handle(const columns_type &columns, const wd_time_t &value) -> void {
+    ++row_count_;
+  }
+  template <typename columns_type>
+  auto handle(const columns_type &columns, const wd_quantity_t &value) -> void {
+    ++row_count_;
+  }
+  template <typename columns_type>
+  auto handle(const columns_type &columns, const wd_coordinate_t &value)
+      -> void {
+    ++row_count_;
+  }
 
   // Count Missing Values
-  auto handle(const wd_novalue_t<wd_string_t> &value) -> void {
+  template <typename columns_type>
+  auto handle(const columns_type &columns,
+              const wd_novalue_t<wd_string_t> &value) -> void {
     ++row_count_, ++nv_string_;
   }
-  auto handle(const wd_novalue_t<wd_entity_id_t> &value) -> void {
+  template <typename columns_type>
+  auto handle(const columns_type &columns,
+              const wd_novalue_t<wd_entity_id_t> &value) -> void {
     ++row_count_, ++nv_entity_;
   }
-  auto handle(const wd_novalue_t<wd_text_t> &value) -> void {
+  template <typename columns_type>
+  auto handle(const columns_type &columns, const wd_novalue_t<wd_text_t> &value)
+      -> void {
     ++row_count_, ++nv_text_;
   }
-  auto handle(const wd_novalue_t<wd_time_t> &value) -> void {
+  template <typename columns_type>
+  auto handle(const columns_type &columns, const wd_novalue_t<wd_time_t> &value)
+      -> void {
     ++row_count_, ++nv_time_;
   }
-  auto handle(const wd_novalue_t<wd_quantity_t> &value) -> void {
+  template <typename columns_type>
+  auto handle(const columns_type &columns,
+              const wd_novalue_t<wd_quantity_t> &value) -> void {
     ++row_count_, ++nv_quantity_;
   }
-  auto handle(const wd_novalue_t<wd_coordinate_t> &value) -> void {
+  template <typename columns_type>
+  auto handle(const columns_type &columns,
+              const wd_novalue_t<wd_coordinate_t> &value) -> void {
     ++row_count_, ++nv_coordinate_;
   }
 

@@ -68,20 +68,6 @@ public:
   }
 };
 
-template <typename derived, const char *field_name>
-struct wd_column_parser : wd_datavalue_type_parser<derived> {
-  template <typename result_handler, typename columns_type>
-  static auto parse_row(result_handler *handler, const columns_type &columns) {
-    return derived::parse(handler, columns.template get_field<field_name>());
-  }
-};
-
-template <typename derived>
-using wd_datavalue_string_parser = wd_column_parser<derived, kDatavalueString>;
-
-template <typename derived>
-using wd_datavalue_entity_parser = wd_column_parser<derived, kDatavalueEntity>;
-
 struct wd_fallback_parser {
 public:
   template <typename columns_type>
@@ -99,38 +85,41 @@ public:
   }
 };
 
-struct wd_string_parser
-    : public detail::wd_datavalue_string_parser<wd_string_parser> {
+struct wd_string_parser : public wd_datavalue_type_parser<wd_string_parser> {
 public:
   static const inline std::string kTypeIdentifier = "string";
-  template <typename result_handler>
-  static auto parse(result_handler *handler, const std::string &str) -> void {
+  template <typename result_handler, typename columns_type>
+  static auto parse_row(result_handler *handler, const columns_type &columns)
+      -> void {
+    const std::string &str = columns.template get_field<kDatavalueString>();
     // NOTE "parsing" the string type is trivial.
-    handler->handle(wd_string_t{.value = str});
+    handler->handle(columns, wd_string_t{.value = str});
   }
 };
 
-struct wd_entity_parser
-    : public detail::wd_datavalue_entity_parser<wd_entity_parser> {
+struct wd_entity_parser : public wd_datavalue_type_parser<wd_entity_parser> {
 public:
   static const inline std::string kTypeIdentifier = "wikibase-entityid";
-  template <typename result_handler>
-  static auto parse(result_handler *handler, const std::string &entity_id)
+  template <typename result_handler, typename columns_type>
+  static auto parse_row(result_handler *handler, const columns_type &columns)
       -> void {
+    const std::string &entity_id =
+        columns.template get_field<kDatavalueEntity>();
     // NOTE "parsing" the entity_id is trivial.
-    handler->handle(wd_entity_id_t{.value = entity_id});
+    handler->handle(columns, wd_entity_id_t{.value = entity_id});
   }
 };
 
-struct wd_text_parser
-    : public detail::wd_datavalue_string_parser<wd_text_parser> {
+struct wd_text_parser : public wd_datavalue_type_parser<wd_text_parser> {
 public:
   static const inline std::string kTypeIdentifier = "monolingualtext";
-  template <typename result_handler>
-  static auto parse(result_handler *handler, const std::string &text_str)
+  template <typename result_handler, typename columns_type>
+  static auto parse_row(result_handler *handler, const columns_type &columns)
       -> void {
+    const std::string &text_str =
+        columns.template get_field<kDatavalueString>();
     if (text_str == "novalue") {
-      handler->handle(wd_novalue_t<wd_text_t>{});
+      handler->handle(columns, wd_novalue_t<wd_text_t>{});
       return;
     }
     std::smatch text_match;
@@ -140,7 +129,7 @@ public:
       std::exit(-1);
     }
     std::string text(text_match[1].str()), language(text_match[2].str());
-    handler->handle(wd_text_t{.text = text, .language = language});
+    handler->handle(columns, wd_text_t{.text = text, .language = language});
   }
 
 private:
@@ -148,14 +137,15 @@ private:
       std::regex("^\\{\"text\"=>\"(.*?)\", \"language\"=>\"([^\"]*?)\"\\}$");
 };
 
-struct wd_time_parser
-    : public detail::wd_datavalue_string_parser<wd_time_parser> {
+struct wd_time_parser : public wd_datavalue_type_parser<wd_time_parser> {
 public:
   static const inline std::string kTypeIdentifier = "time";
-  template <typename result_handler>
-  static auto parse(result_handler *handler, const std::string &time_str) {
+  template <typename result_handler, typename columns_type>
+  static auto parse_row(result_handler *handler, const columns_type &columns) {
+    const std::string &time_str =
+        columns.template get_field<kDatavalueString>();
     if (time_str == "novalue") {
-      handler->handle(wd_novalue_t<wd_time_t>{});
+      handler->handle(columns, wd_novalue_t<wd_time_t>{});
       return;
     }
     std::smatch time_match;
@@ -169,12 +159,12 @@ public:
         before(std::stoull(time_match[3].str())),
         after(std::stoull(time_match[4].str())),
         precision(std::stoull(time_match[5].str()));
-    handler->handle(wd_time_t{.time = time,
-                              .calendermodel = calendarmodel,
-                              .timezone = timezone,
-                              .before = before,
-                              .after = after,
-                              .precision = precision});
+    handler->handle(columns, wd_time_t{.time = time,
+                                       .calendermodel = calendarmodel,
+                                       .timezone = timezone,
+                                       .before = before,
+                                       .after = after,
+                                       .precision = precision});
   }
 
 private:
@@ -185,15 +175,17 @@ private:
 };
 
 struct wd_quantity_parser
-    : public detail::wd_datavalue_string_parser<wd_quantity_parser> {
+    : public wd_datavalue_type_parser<wd_quantity_parser> {
 public:
   static const inline std::string kTypeIdentifier = "quantity";
-  template <typename result_handler>
-  static auto parse(result_handler *handler, const std::string &quantity_str)
+  template <typename result_handler, typename columns_type>
+  static auto parse_row(result_handler *handler, const columns_type &columns)
       -> void {
+    const std::string &quantity_str =
+        columns.template get_field<kDatavalueString>();
     std::smatch quantity_match;
     if (quantity_str == "novalue") {
-      handler->handle(wd_novalue_t<wd_quantity_t>{});
+      handler->handle(columns, wd_novalue_t<wd_quantity_t>{});
       return;
     }
     if (!std::regex_match(quantity_str, quantity_match, quantity_regex)) {
@@ -204,10 +196,10 @@ public:
     std::string quantity(quantity_match[1].str()),
         unit(quantity_match[2].str()), upper_bound(quantity_match[4].str()),
         lower_bound(quantity_match[6].str());
-    handler->handle(wd_quantity_t{.quantity = quantity,
-                                  .unit = unit,
-                                  .lower_bound = lower_bound,
-                                  .upper_bound = upper_bound});
+    handler->handle(columns, wd_quantity_t{.quantity = quantity,
+                                           .unit = unit,
+                                           .lower_bound = lower_bound,
+                                           .upper_bound = upper_bound});
   }
 
 private:
@@ -217,14 +209,16 @@ private:
 };
 
 struct wd_coordinate_parser
-    : public detail::wd_datavalue_string_parser<wd_coordinate_parser> {
+    : public wd_datavalue_type_parser<wd_coordinate_parser> {
 public:
   static const inline std::string kTypeIdentifier = "globecoordinate";
-  template <typename result_handler>
-  static auto parse(result_handler *handler, const std::string &coordinate_str)
+  template <typename result_handler, typename columns_type>
+  static auto parse_row(result_handler *handler, const columns_type &columns)
       -> void {
+    const std::string &coordinate_str =
+        columns.template get_field<kDatavalueString>();
     if (coordinate_str == "novalue") {
-      handler->handle(wd_novalue_t<wd_coordinate_t>{});
+      handler->handle(columns, wd_novalue_t<wd_coordinate_t>{});
       return;
     }
     std::smatch coordinate_match;
@@ -237,11 +231,11 @@ public:
         longitude(coordinate_match[2].str()),
         altitude(coordinate_match[3].str()),
         precision(coordinate_match[4].str()), globe(coordinate_match[5].str());
-    handler->handle(wd_coordinate_t{.latitude = latitude,
-                                    .longitude = longitude,
-                                    .altitude = altitude,
-                                    .precision = precision,
-                                    .globe = globe});
+    handler->handle(columns, wd_coordinate_t{.latitude = latitude,
+                                             .longitude = longitude,
+                                             .altitude = altitude,
+                                             .precision = precision,
+                                             .globe = globe});
   }
 
 private:
