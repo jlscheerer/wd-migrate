@@ -116,7 +116,7 @@ public: // result handlers
   auto handle(const columns_type &columns, const wd_time_t &value) -> void {
     csv_output_row row = csv_output_row::prepare_row(columns);
     // NOTE requires setting "set time zone UTC;" in psql
-    row.datavalue_time = date::format("%Y-%m-%dT%T%z", value.iso8601);
+    row.datavalue_time = value.str();
     row.datavalue_entity_id = value.calendermodel;
     output_ << row;
   }
