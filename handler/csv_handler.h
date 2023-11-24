@@ -114,6 +114,11 @@ public: // result handlers
 
   template <typename columns_type>
   auto handle(const columns_type &columns, const wd_time_t &value) -> void {
+    if (value.get_year() <= -4713 || value.get_year() >= 294276) {
+      return; // NOTE postgres does not support timestamp not within this range.
+              // See
+              // https://www.postgresql.org/docs/current/datatype-datetime.html.
+    }
     csv_output_row row = csv_output_row::prepare_row(columns);
     // NOTE requires setting "set time zone UTC;" in psql
     row.datavalue_time = value.str();

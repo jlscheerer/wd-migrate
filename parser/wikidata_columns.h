@@ -29,8 +29,11 @@ struct wd_text_t {
 
 struct wd_time_t {
 public:
+  auto get_year() const -> int {
+    return std::stoi(date::format("%Y", iso8601));
+  }
   auto str() const -> std::string {
-    int year = std::stoi(date::format("%Y", iso8601));
+    int year = get_year();
     std::string year_str =
         year >= 0 ? std::to_string(year) + "AD" : std::to_string(-year) + "BC";
     return date::format("%d/%m/", iso8601) + year_str + ' ' +
