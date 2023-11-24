@@ -15,51 +15,6 @@
 namespace wd_migrate {
 namespace detail {
 
-template <const char *column_name, typename column_type> struct wd_column_info {
-public:
-  template <const char *field_name> static constexpr auto is_named() {
-    return column_name == field_name;
-  }
-
-  column_type data_;
-};
-
-template <typename... columns> struct wd_column_pack;
-
-template <> struct wd_column_pack<> {
-  static constexpr auto size() -> std::uint64_t { return 0; }
-
-  template <typename reader_type, typename... column_types>
-  auto read_row(reader_type &reader, column_types &&...columns) -> bool {
-    return reader.read_row(std::forward<column_types>(columns)...);
-  }
-};
-
-template <typename head, typename... tail>
-struct wd_column_pack<head, tail...> {
-  static constexpr auto size() -> std::uint64_t {
-    return 1 + decltype(tail_)::size();
-  }
-
-  template <const char *field_name> const auto &get_field() const {
-    if constexpr (head::template is_named<field_name>()) {
-      return head_.data_;
-    } else {
-      return tail_.template get_field<field_name>();
-    }
-  }
-
-  template <typename reader_type, typename... column_types>
-  auto read_row(reader_type &reader, column_types &&...columns) -> bool {
-    return tail_.read_row(reader, std::forward<column_types>(columns)...,
-                          head_.data_);
-  }
-
-private:
-  head head_;
-  wd_column_pack<tail...> tail_;
-};
-
 template <typename derived> struct wd_datavalue_type_parser {
 public:
   template <typename columns_type>
@@ -334,8 +289,11 @@ using wd_primitives_parser =
                        wd_coordinate_parser, wd_quantity_parser,
                        wd_text_parser>;
 
-template <typename parser, typename result_handler, typename columns_type>
+template <typename tag, typename result_handler,
+          typename parser = wd_primitives_parser>
 class wikidata_parser_impl {
+  using columns_type = columns_info_t<tag>;
+
 public:
   auto parse(const std::string &filename, result_handler *handler) -> void {
     io::CSVReader<columns_type::size(), io::trim_chars<' '>,
@@ -354,6 +312,9 @@ protected:
   columns_type columns_;
 };
 } // namespace detail
+
+template <typename tag, typename result_handler>
+using wikidata_parser = detail::wikidata_parser_impl<tag, result_handler>;
 } // namespace wd_migrate
 
 #endif // !PARSER_WIKIDATA_PARSER_H

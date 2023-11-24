@@ -216,7 +216,8 @@ public: // result handlers
   auto handle(const columns_type &columns, const wd_invalid_t<wd_time_t> &value)
       -> void {
     if constexpr (print_illegal_values) {
-      std::cout << columns.template get_field<kDatavalueString>() << std::endl;
+      std::cout << columns.template get_field<detail::kDatavalueString>()
+                << std::endl;
     }
     ++row_count_, ++iv_time_;
   }
