@@ -32,7 +32,8 @@ template <typename ostream>
 auto operator<<(ostream &os, const claims_csv_output_row &row) -> ostream & {
   os << row.entity_id << '\t' << row.claim_id << '\t' << row.property << '\t'
      << row.datavalue_datatype << '\t' << row.datavalue_string << '\t'
-     << row.datavalue_entity_id << '\t' << row.datavalue_time << '\t';
+     << row.datavalue_entity_id << '\t' << row.datavalue_time << '\t'
+     << row.datavalue_numeric << '\n';
   return os;
 }
 
@@ -58,7 +59,8 @@ auto operator<<(ostream &os, const qualifiers_csv_output_row &row)
     -> ostream & {
   os << row.claim_id << '\t' << row.qualifier_property << '\t'
      << row.datavalue_datatype << '\t' << row.datavalue_string << '\t'
-     << row.datavalue_entity_id << '\t' << row.datavalue_time << '\t';
+     << row.datavalue_entity_id << '\t' << row.datavalue_time << '\t'
+     << row.datavalue_numeric << '\n';
   return os;
 }
 

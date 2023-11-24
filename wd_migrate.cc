@@ -33,7 +33,9 @@ auto main(int argc, char **argv) -> int {
 
   std::string_view file_type(argv[1]);
   if (file_type == "claims") {
-    auto handler = stats_handler</*print_illegal_values=*/true>();
+    auto handler = stacked_handler(
+        stats_handler</*print_illegal_values=*/false>(),
+        quantity_scale_handler(), csv_handler<claims_tag_t>(argv[3]));
     parse_wikidata<claims_tag_t>(argv[2], handler);
   } else if (file_type == "qualifiers") {
     auto handler = stacked_handler(
