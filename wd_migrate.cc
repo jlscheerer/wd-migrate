@@ -4,6 +4,7 @@
 
 #include "fast-cpp-csv-parser/csv.h"
 #include "handler/csv_handler.h"
+#include "handler/entity_count_handler.h"
 #include "handler/wikidata_handler.h"
 #include "parser/wikidata_columns.h"
 #include "parser/wikidata_parser.h"
@@ -33,14 +34,16 @@ auto main(int argc, char **argv) -> int {
 
   std::string_view file_type(argv[1]);
   if (file_type == "claims") {
-    auto handler = stacked_handler(
-        stats_handler</*print_illegal_values=*/false>(),
-        quantity_scale_handler(), csv_handler<claims_tag_t>(argv[3]));
+    auto handler =
+        stacked_handler(stats_handler</*print_illegal_values=*/false>(),
+                        quantity_scale_handler(), entity_count_handler(),
+                        csv_handler<claims_tag_t, /*psql=*/false>(argv[3]));
     parse_wikidata<claims_tag_t>(argv[2], handler);
   } else if (file_type == "qualifiers") {
-    auto handler = stacked_handler(
-        stats_handler</*print_illegal_values=*/false>(),
-        quantity_scale_handler(), csv_handler<qualifiers_tag_t>(argv[3]));
+    auto handler =
+        stacked_handler(stats_handler</*print_illegal_values=*/false>(),
+                        quantity_scale_handler(),
+                        csv_handler<qualifiers_tag_t, /*psql=*/false>(argv[3]));
     parse_wikidata<qualifiers_tag_t>(argv[2], handler);
   } else {
     return print_usage(argv[0]);

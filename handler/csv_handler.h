@@ -75,7 +75,8 @@ template <typename tag>
 using csv_output_row_t = typename csv_output_row<tag>::type;
 } // namespace detail
 
-template <typename tag> struct csv_handler : public skip_novalue_handler {
+template <typename tag, bool psql = true>
+struct csv_handler : public skip_novalue_handler {
   using csv_output_row = detail::csv_output_row_t<tag>;
 
 public:
@@ -114,16 +115,23 @@ public: // result handlers
 
   template <typename columns_type>
   auto handle(const columns_type &columns, const wd_time_t &value) -> void {
-    if (value.get_year() <= -4713 || value.get_year() >= 294276) {
-      return; // NOTE postgres does not support timestamp not within this range.
-              // See
-              // https://www.postgresql.org/docs/current/datatype-datetime.html.
+    if constexpr (psql) {
+      if (value.get_year() <= -4713 || value.get_year() >= 294276) {
+        return; // NOTE postgres does not support timestamp not within this
+                // range. See
+                // https://www.postgresql.org/docs/current/datatype-datetime.html.
+      }
+      csv_output_row row = csv_output_row::prepare_row(columns);
+      // NOTE requires setting "set time zone UTC;" in psql
+      row.datavalue_time = value.psql_str();
+      row.datavalue_entity_id = value.calendermodel;
+      output_ << row;
+    } else {
+      csv_output_row row = csv_output_row::prepare_row(columns);
+      row.datavalue_time = value.ustr();
+      row.datavalue_entity_id = value.calendermodel;
+      output_ << row;
     }
-    csv_output_row row = csv_output_row::prepare_row(columns);
-    // NOTE requires setting "set time zone UTC;" in psql
-    row.datavalue_time = value.str();
-    row.datavalue_entity_id = value.calendermodel;
-    output_ << row;
   }
 
   template <typename columns_type>

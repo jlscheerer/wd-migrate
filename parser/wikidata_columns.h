@@ -32,12 +32,15 @@ public:
   auto get_year() const -> int {
     return std::stoi(date::format("%Y", iso8601));
   }
-  auto str() const -> std::string {
+  auto psql_str() const -> std::string {
     int year = get_year();
     std::string year_str =
         year >= 0 ? std::to_string(year) + "AD" : std::to_string(-year) + "BC";
     return date::format("%d/%m/", iso8601) + year_str + ' ' +
            date::format("%T%z", iso8601);
+  }
+  auto ustr() const -> std::string {
+    return date::format("%Y-%m-%dT%T%z", iso8601);
   }
 
   const std::string time;
