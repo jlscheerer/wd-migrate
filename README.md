@@ -7,4 +7,4 @@ C++ utility to convert [wikidata dumps](https://www.wikidata.org/wiki/Wikidata:M
 ```sh
 git clone --recursive https://github.com/jlscheerer/wd-migrate.git
 g++ --std=c++2a -O3 wd_migrate.cc -lpthread
-``
+```
